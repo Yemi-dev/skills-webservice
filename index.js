@@ -9,7 +9,6 @@ const PORT = 5000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
 app.use(
   cors({
     origin: "*",
@@ -18,11 +17,9 @@ app.use(
   })
 );
 
-
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
-
 
 app.get(
   "/data",
@@ -31,19 +28,18 @@ app.get(
     let categoryData = [];
     const categories = jobCategories;
 
-    const job = jobCategories.find((job) => job.id === category);
+    const job = jobCategories.find((job) => job.name === category);
     console.log(category);
     if (category) {
       categoryData = skills.find((item) => item.name === job?.name);
+
+      if (!categoryData) {
+        return res.status(404).json({ status: "failed", message: "Category not found" });
+      }
+      res.status(200).json({ status: "success", data: { categories, categoryData } });
     } else {
-      categoryData = { skills: skills.flatMap((item) => item.skills) };
+      res.status(200).json({ status: "success", data: { categories } });
     }
-
-    if (!categoryData) {
-      return res.status(404).json({ status: "failed", message: "Category not found" });
-    }
-
-    res.status(200).json({ status: "success", data: { categories, categoryData } });
   })
 );
 
@@ -51,7 +47,6 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: "Something went wrong!", error: err.message });
 });
-
 
 app.use((req, res) => {
   res.status(404).json({ message: "Not Found" });
