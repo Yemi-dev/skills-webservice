@@ -1,57 +1,73 @@
 const express = require("express");
+const dotenv = require("dotenv");
 const cors = require("cors");
-const { jobCategories } = require("./constants/jobDescription");
-const { skills } = require("./constants/skillsData");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const http = require("http");
+const router = require("./routes/index.routes");
+const { errorHandler } = require("./middlewares");
+const connectDB = require("./DB/connection");
 
+dotenv.config();
+
+// Initialize Express
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Connect to MongoDB FIRST
+(async () => {
+  try {
+    await connectDB(); // ⚠️
+    console.log("✅ MongoDB Connected");
 
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+    // Middlewares
+    app.use(
+      cors({
+        origin: "*",
+        methods: ["GET", "POST", "PATCH", "DELETE"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+      })
+    );
+    app.use(helmet());
+    app.set("trust proxy", 1);
 
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
-
-app.get(
-  "/data",
-  asyncHandler(async (req, res) => {
-    const { category } = req.query;
-    let categoryData = [];
-    const categories = jobCategories;
-
-    const job = jobCategories.find((job) => job.name === category);
-    console.log(category);
-    if (category) {
-      categoryData = skills.find((item) => item.name === job?.name);
-
-      if (!categoryData) {
-        return res.status(404).json({ status: "failed", message: "Category not found" });
-      }
-      res.status(200).json({ status: "success", data: { categories, categoryData } });
-    } else {
-      res.status(200).json({ status: "success", data: { categories } });
+    if (process.env.NODE_ENV !== "test") {
+      app.use(morgan("dev"));
     }
-  })
-);
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong!", error: err.message });
-});
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res) => {
-  res.status(404).json({ message: "Not Found" });
-});
+    // Routes
+    app.get("/", (req, res) => {
+      res.status(200).json({
+        status: true,
+        message: "Welcome to  web service",
+      });
+    });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+    app.use("/api", router);
+
+    // // 404 Handler
+    // app.use((req, res, next) => {
+    //   const error = new Error(`Not Found - ${req.originalUrl}`);
+    //   error.status = httpStatus.NOT_FOUND;
+    //   next(error);
+    // });
+
+    // Error Handler
+    app.use(errorHandler);
+
+    // Start the server ONLY after DB connects
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+    });
+  } catch (err) {
+    console.error("❌ Failed to connect to MongoDB", err);
+    process.exit(1); // Crash the app if DB connection fails
+  }
+})();
+
+module.exports = server;
