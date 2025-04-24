@@ -1,4 +1,5 @@
 const Waitlist = require("../models/waitlist.model");
+const sendEmail = require("../services/email");
 
 const submitWaitlist = async (req, res, next) => {
   try {
@@ -24,6 +25,10 @@ const submitWaitlist = async (req, res, next) => {
       otherSuccessMetric: success === "Other" ? otherSuccessMetric : "",
       country,
     });
+
+    if (waitlistEntry) {
+      await sendEmail(email);
+    }
 
     return res.status(201).json({
       // 201 Created
